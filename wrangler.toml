@@ -1,4 +1,4 @@
-name = "random-hls"
+name = "worker"
 main = "worker.js"
 compatibility_date = "2026-03-13"
 
