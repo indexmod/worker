@@ -13,7 +13,7 @@ body {
   display: flex;
 }
 
-/* SIDEBAR */
+/* sidebar */
 .sidebar {
   width: 240px;
   height: 100vh;
@@ -21,18 +21,15 @@ body {
   border-right: 1px solid #eee;
   padding: 20px;
   box-sizing: border-box;
-  background: #fff;
 }
 
 .sidebar h3 {
-  margin-top: 0;
-  font-size: 14px;
-  letter-spacing: 0.5px;
+  margin: 0 0 10px 0;
+  font-size: 13px;
   text-transform: uppercase;
   color: #666;
 }
 
-/* links */
 .page-link {
   display: block;
   padding: 6px 0;
@@ -41,17 +38,13 @@ body {
   font-size: 14px;
 }
 
-.page-link:hover {
-  text-decoration: underline;
-}
-
-/* MAIN */
+/* main */
 .main {
   margin-left: 240px;
   width: 100%;
 }
 
-/* EDITOR */
+/* editor */
 .editor {
   max-width: 800px;
   margin: 60px auto;
@@ -59,7 +52,6 @@ body {
   outline: none;
 }
 
-/* typography */
 h1 {
   font-size: 42px;
   margin-bottom: 20px;
@@ -94,26 +86,34 @@ p {
 
 <!-- MAIN -->
 <div class="main">
-  <div class="editor" contenteditable="true" id="editor">
-    <h1>Title of article</h1>
-    <h2>Write subtitle here</h2>
-    <hr>
-    <p>Start writing your story here...</p>
-  </div>
+  <div class="editor" contenteditable="true" id="editor"></div>
 </div>
 
 <script>
 const path = window.location.pathname.split("/").pop() || "home";
 const editor = document.getElementById("editor");
 
-/* LOAD PAGE */
+/* --------------------
+   LOAD PAGE
+---------------------*/
 fetch(`/api/page/${path}`)
   .then(r => r.text())
   .then(text => {
-    if (text) editor.innerHTML = text;
+
+    // ВАЖНО: если страница пустая — ставим минимальный шаблон
+    if (!text || text.trim() === "") {
+      editor.innerHTML = `
+        <h1>Untitled</h1>
+        <p>Start writing...</p>
+      `;
+    } else {
+      editor.innerHTML = text;
+    }
   });
 
-/* AUTO SAVE */
+/* --------------------
+   AUTO SAVE
+---------------------*/
 let timeout;
 
 editor.addEventListener("input", () => {
@@ -127,16 +127,18 @@ editor.addEventListener("input", () => {
   }, 500);
 });
 
-/* LOAD SIDEBAR */
+/* --------------------
+   SIDEBAR LOAD (FIXED)
+---------------------*/
 async function loadPages() {
   const res = await fetch("/api/pages");
   const pages = await res.json();
 
-  document.getElementById("pages").innerHTML = pages.map(p => `
-    <a class="page-link" href="/${p}">
-      ${p}
-    </a>
-  `).join("");
+  document.getElementById("pages").innerHTML = pages.length
+    ? pages.map(p => `
+        <a class="page-link" href="/${p}">${p}</a>
+      `).join("")
+    : "<div style='color:#999;font-size:13px'>No pages</div>";
 }
 
 loadPages();
