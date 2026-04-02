@@ -2,11 +2,97 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Wiki</title>
-</head>
-<body style="background:#111;color:white;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;">
+  <title>Live Wiki</title>
 
-  <div id="text">wiki is alive</div>
+  <style>
+    body {
+      margin: 0;
+      background: #0f0f0f;
+      color: white;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    textarea {
+      width: 70%;
+      height: 300px;
+      font-size: 18px;
+      background: #1c1c1c;
+      color: white;
+      border: none;
+      padding: 12px;
+      outline: none;
+    }
+
+    .row {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      padding: 10px 15px;
+      cursor: pointer;
+      background: white;
+      border: none;
+    }
+
+    .status {
+      margin-top: 10px;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>🧠 Live Wiki</h2>
+
+<textarea id="editor">loading...</textarea>
+
+<div class="row">
+  <button onclick="save()">Save</button>
+  <button onclick="load()">Reload</button>
+</div>
+
+<div class="status" id="status"></div>
+
+<script>
+
+const API = "https://wiki-api.wiki-self.workers.dev";
+// ⬆️ если у тебя другой домен — замени тут
+
+async function load() {
+  document.getElementById("status").innerText = "loading...";
+
+  const res = await fetch(API);
+  const text = await res.text();
+
+  document.getElementById("editor").value = text;
+
+  document.getElementById("status").innerText = "loaded";
+}
+
+async function save() {
+  const text = document.getElementById("editor").value;
+
+  document.getElementById("status").innerText = "saving...";
+
+  await fetch(API, {
+    method: "POST",
+    body: text
+  });
+
+  document.getElementById("status").innerText = "saved ✓";
+}
+
+load();
+
+</script>
 
 </body>
 </html>
