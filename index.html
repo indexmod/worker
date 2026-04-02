@@ -2,95 +2,239 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Live Wiki</title>
+  <title>Indexmod Wiki</title>
 
   <style>
+    /* =========================
+       NEW YORKER STYLE WIKI
+       ========================= */
+
     body {
       margin: 0;
-      background: #0f0f0f;
-      color: white;
-      font-family: monospace;
+      background: #ffffff;
+      color: #111;
+      font-family: "Georgia", "Times New Roman", serif;
+      line-height: 1.7;
+    }
+
+    .layout {
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       height: 100vh;
     }
 
-    textarea {
-      width: 70%;
-      height: 300px;
+    /* SIDEBAR */
+    .sidebar {
+      width: 260px;
+      border-right: 1px solid #e6e6e6;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .logo {
       font-size: 18px;
-      background: #1c1c1c;
-      color: white;
-      border: none;
-      padding: 12px;
-      outline: none;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
     }
 
-    .row {
-      margin-top: 10px;
-      display: flex;
-      gap: 10px;
-    }
-
-    button {
-      padding: 10px 15px;
+    .new-page {
+      font-size: 14px;
+      padding: 6px 0;
       cursor: pointer;
-      background: white;
-      border: none;
+      color: #444;
     }
 
-    .status {
-      margin-top: 10px;
-      opacity: 0.6;
+    .new-page:hover {
+      text-decoration: underline;
     }
+
+    .pages {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+
+    .page-item {
+      cursor: pointer;
+      padding: 4px 0;
+      color: #222;
+    }
+
+    .page-item:hover {
+      text-decoration: underline;
+    }
+
+    /* MAIN */
+    .main {
+      flex: 1;
+      padding: 60px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .editor-container {
+      width: 100%;
+      max-width: 720px;
+    }
+
+    .title {
+      font-size: 28px;
+      margin-bottom: 20px;
+      border: none;
+      outline: none;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    textarea {
+      width: 100%;
+      height: 60vh;
+      border: none;
+      outline: none;
+      font-size: 18px;
+      font-family: inherit;
+      line-height: 1.8;
+      resize: none;
+    }
+
+    .actions {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #666;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .btn {
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      text-decoration: underline;
+    }
+
   </style>
 </head>
 
 <body>
 
-<h2>🧠 Live Wiki</h2>
+<div class="layout">
 
-<textarea id="editor">loading...</textarea>
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo">INDEXMOD / WIKI</div>
 
-<div class="row">
-  <button onclick="save()">Save</button>
-  <button onclick="load()">Reload</button>
+    <div class="new-page" onclick="createPage()">+ New page</div>
+
+    <div class="pages" id="pages"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="editor-container">
+
+      <input class="title" id="title" placeholder="Untitled article">
+
+      <textarea id="editor" placeholder="Start writing..."></textarea>
+
+      <div class="actions">
+        <div id="status">idle</div>
+        <div class="btn" onclick="save()">Save</div>
+      </div>
+
+    </div>
+  </div>
+
 </div>
-
-<div class="status" id="status"></div>
 
 <script>
 
-const API = "https://wiki-api.wiki-self.workers.dev";
-// ⬆️ если у тебя другой домен — замени тут
+const API = "/api";
 
-async function load() {
-  document.getElementById("status").innerText = "loading...";
+let currentSlug = "home";
 
-  const res = await fetch(API);
+/* =========================
+   LOAD PAGE
+   ========================= */
+
+async function load(slug) {
+  currentSlug = slug;
+
+  const res = await fetch(API + "/page/" + slug);
   const text = await res.text();
 
   document.getElementById("editor").value = text;
+  document.getElementById("title").value = slug;
 
-  document.getElementById("status").innerText = "loaded";
+  setStatus("loaded");
 }
+
+/* =========================
+   SAVE PAGE
+   ========================= */
 
 async function save() {
   const text = document.getElementById("editor").value;
+  const slug = document.getElementById("title").value.trim();
 
-  document.getElementById("status").innerText = "saving...";
+  if (!slug) return;
 
-  await fetch(API, {
+  setStatus("saving...");
+
+  await fetch(API + "/page/" + slug, {
     method: "POST",
     body: text
   });
 
-  document.getElementById("status").innerText = "saved ✓";
+  currentSlug = slug;
+
+  setStatus("saved");
+  loadPages();
 }
 
-load();
+/* =========================
+   LIST PAGES
+   ========================= */
+
+async function loadPages() {
+  const res = await fetch(API + "/pages");
+  const list = await res.json();
+
+  const container = document.getElementById("pages");
+  container.innerHTML = "";
+
+  list.forEach(p => {
+    const div = document.createElement("div");
+    div.className = "page-item";
+    div.innerText = p;
+    div.onclick = () => load(p);
+    container.appendChild(div);
+  });
+}
+
+/* =========================
+   CREATE PAGE
+   ========================= */
+
+function createPage() {
+  const slug = prompt("Page name (slug):");
+  if (!slug) return;
+
+  load(slug);
+}
+
+/* =========================
+   STATUS
+   ========================= */
+
+function setStatus(text) {
+  document.getElementById("status").innerText = text;
+}
+
+/* =========================
+   INIT
+   ========================= */
+
+load(currentSlug);
+loadPages();
 
 </script>
 
