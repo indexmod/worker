@@ -1,43 +1,103 @@
-
 export default {
   async fetch(request, env) {
-    const objects = await env.VIDEO_BUCKET.list();
+    const url = new URL(request.url);
 
-    let segments = objects.objects
-      .map(obj => obj.key)
-      .filter(key => key.endsWith(".ts"));
-
-    if (segments.length === 0) {
-      return new Response("No segments found", { status: 404 });
+    if (url.pathname === "/save" && request.method === "POST") {
+      const { title, content } = await request.json();
+      await env.WIKI.put(title, content);
+      return new Response("OK");
     }
 
-    // Shuffle
-    for (let i = segments.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [segments[i], segments[j]] = [segments[j], segments[i]];
+    if (url.pathname.startsWith("/edit/")) {
+      const title = decodeURIComponent(url.pathname.replace("/edit/", ""));
+      const content = await env.WIKI.get(title) || "";
+      return html(renderEditor(title, content));
     }
 
-    // Берём первые 30 сегментов
-    segments = segments.slice(0, 30);
+    const title = decodeURIComponent(url.pathname.slice(1)) || "home";
+    const content = await env.WIKI.get(title);
 
-    let playlist = "#EXTM3U\n";
-    playlist += "#EXT-X-VERSION:3\n";
-    playlist += "#EXT-X-TARGETDURATION:10\n";
-    playlist += "#EXT-X-MEDIA-SEQUENCE:0\n";
-
-    for (const seg of segments) {
-      playlist += "#EXTINF:2.0,\n";
-      playlist += seg + "\n";
+    if (!content) {
+      return html(renderNotFound(title), 404);
     }
 
-    playlist += "#EXT-X-ENDLIST\n";
-
-    return new Response(playlist, {
-      headers: {
-        "Content-Type": "application/vnd.apple.mpegurl",
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "no-cache"
-      }
-    });
+    return html(renderPage(title, content));
   }
 };
+
+function html(body, status = 200) {
+  return new Response(body, {
+    status,
+    headers: { "content-type": "text/html; charset=utf-8" }
+  });
+}
+
+function renderPage(title, content) {
+  return `
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${title}</title>
+<style>
+body { font-family: sans-serif; max-width: 800px; margin: 40px auto; }
+pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>${title}</h1>
+<pre>${escapeHtml(content)}</pre>
+<p><a href="/edit/${encodeURIComponent(title)}">Edit</a></p>
+</body>
+</html>`;
+}
+
+function renderEditor(title, content) {
+  return `
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Edit ${title}</title>
+<style>
+body { font-family: sans-serif; max-width: 800px; margin: 40px auto; }
+textarea { width: 100%; height: 60vh; }
+</style>
+</head>
+<body>
+<h1>Edit: ${title}</h1>
+<textarea id="content">${escapeHtml(content)}</textarea>
+<br><br>
+<button onclick="save()">Save</button>
+
+<script>
+async function save() {
+  await fetch("/save", {
+    method: "POST",
+    headers: {"content-type": "application/json"},
+    body: JSON.stringify({
+      title: "${title}",
+      content: document.getElementById("content").value
+    })
+  });
+  window.location = "/${title}";
+}
+</script>
+
+</body>
+</html>`;
+}
+
+function renderNotFound(title) {
+  return `
+<h1>Page not found: ${title}</h1>
+<a href="/edit/${encodeURIComponent(title)}">Create page</a>
+`;
+}
+
+function escapeHtml(str) {
+  return (str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
