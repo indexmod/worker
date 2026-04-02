@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Control</title>
+
+<style>
+body {
+  font-family: Arial;
+  background: #f2f2f2;
+  padding: 40px;
+}
+
+.box {
+  max-width: 600px;
+  margin: auto;
+  background: white;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+button {
+  margin-top: 20px;
+  padding: 10px 15px;
+  background: black;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+  <h2>Content Control</h2>
+
+  <div id="list">Loading...</div>
+
+  <button onclick="deleteSelected()">Delete selected</button>
+</div>
+
+<script>
+let pages = [];
+
+async function loadPages() {
+  const res = await fetch("/api/pages");
+  pages = await res.json();
+
+  document.getElementById("list").innerHTML = pages.map(p => `
+    <div class="item">
+      <label>
+        <input type="checkbox" value="${p}">
+        ${p}
+      </label>
+    </div>
+  `).join("");
+}
+
+async function deleteSelected() {
+  const checked = [...document.querySelectorAll("input[type=checkbox]:checked")]
+    .map(i => i.value);
+
+  await fetch("/api/delete", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ slugs: checked })
+  });
+
+  await loadPages();
+}
+
+loadPages();
+</script>
+
+</body>
+</html>
