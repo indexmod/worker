@@ -1,241 +1,92 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Indexmod Wiki</title>
+<meta charset="UTF-8">
+<title>Indexmod Wiki</title>
 
-  <style>
-    /* =========================
-       NEW YORKER STYLE WIKI
-       ========================= */
+<style>
+body {
+  margin: 0;
+  font-family: Georgia, serif;
+  background: #e9e9e9;
+  color: #111;
+}
 
-    body {
-      margin: 0;
-      background: #ffffff;
-      color: #111;
-      font-family: "Georgia", "Times New Roman", serif;
-      line-height: 1.7;
-    }
+/* центральный "лист" */
+.editor {
+  max-width: 800px;
+  margin: 40px auto;
+  background: #fff;
+  padding: 60px 70px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  outline: none;
+}
 
-    .layout {
-      display: flex;
-      height: 100vh;
-    }
+/* title */
+h1 {
+  font-size: 42px;
+  margin-bottom: 20px;
+}
 
-    /* SIDEBAR */
-    .sidebar {
-      width: 260px;
-      border-right: 1px solid #e6e6e6;
-      padding: 20px;
-      box-sizing: border-box;
-    }
+/* subtitle */
+h2 {
+  font-size: 20px;
+  font-weight: normal;
+  color: #555;
+}
 
-    .logo {
-      font-size: 18px;
-      letter-spacing: 1px;
-      margin-bottom: 20px;
-    }
+/* разделитель */
+hr {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 30px 0;
+}
 
-    .new-page {
-      font-size: 14px;
-      padding: 6px 0;
-      cursor: pointer;
-      color: #444;
-    }
+/* текст как Medium */
+p {
+  font-size: 18px;
+  line-height: 1.7;
+}
 
-    .new-page:hover {
-      text-decoration: underline;
-    }
-
-    .pages {
-      margin-top: 20px;
-      font-size: 14px;
-    }
-
-    .page-item {
-      cursor: pointer;
-      padding: 4px 0;
-      color: #222;
-    }
-
-    .page-item:hover {
-      text-decoration: underline;
-    }
-
-    /* MAIN */
-    .main {
-      flex: 1;
-      padding: 60px;
-      display: flex;
-      justify-content: center;
-    }
-
-    .editor-container {
-      width: 100%;
-      max-width: 720px;
-    }
-
-    .title {
-      font-size: 28px;
-      margin-bottom: 20px;
-      border: none;
-      outline: none;
-      width: 100%;
-      font-family: inherit;
-    }
-
-    textarea {
-      width: 100%;
-      height: 60vh;
-      border: none;
-      outline: none;
-      font-size: 18px;
-      font-family: inherit;
-      line-height: 1.8;
-      resize: none;
-    }
-
-    .actions {
-      margin-top: 15px;
-      font-size: 14px;
-      color: #666;
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .btn {
-      cursor: pointer;
-    }
-
-    .btn:hover {
-      text-decoration: underline;
-    }
-
-  </style>
+/* лёгкий "medium feel" */
+.editor:focus {
+  box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+}
+</style>
 </head>
 
 <body>
 
-<div class="layout">
-
-  <!-- SIDEBAR -->
-  <div class="sidebar">
-    <div class="logo">INDEXMOD / WIKI</div>
-
-    <div class="new-page" onclick="createPage()">+ New page</div>
-
-    <div class="pages" id="pages"></div>
-  </div>
-
-  <!-- MAIN -->
-  <div class="main">
-    <div class="editor-container">
-
-      <input class="title" id="title" placeholder="Untitled article">
-
-      <textarea id="editor" placeholder="Start writing..."></textarea>
-
-      <div class="actions">
-        <div id="status">idle</div>
-        <div class="btn" onclick="save()">Save</div>
-      </div>
-
-    </div>
-  </div>
-
+<div class="editor" contenteditable="true" id="editor">
+  <h1>Title of article</h1>
+  <h2>Write subtitle here</h2>
+  <hr>
+  <p>Start writing your story here...</p>
 </div>
 
 <script>
+const path = window.location.pathname.split("/").pop() || "home";
 
-const API = "/api";
-
-let currentSlug = "home";
-
-/* =========================
-   LOAD PAGE
-   ========================= */
-
-async function load(slug) {
-  currentSlug = slug;
-
-  const res = await fetch(API + "/page/" + slug);
-  const text = await res.text();
-
-  document.getElementById("editor").value = text;
-  document.getElementById("title").value = slug;
-
-  setStatus("loaded");
-}
-
-/* =========================
-   SAVE PAGE
-   ========================= */
-
-async function save() {
-  const text = document.getElementById("editor").value;
-  const slug = document.getElementById("title").value.trim();
-
-  if (!slug) return;
-
-  setStatus("saving...");
-
-  await fetch(API + "/page/" + slug, {
-    method: "POST",
-    body: text
+// загрузка статьи
+fetch(`/api/page/${path}`)
+  .then(r => r.text())
+  .then(text => {
+    if (text) document.getElementById("editor").innerHTML = text;
   });
 
-  currentSlug = slug;
+// автосохранение
+let timeout;
 
-  setStatus("saved");
-  loadPages();
-}
+document.getElementById("editor").addEventListener("input", () => {
+  clearTimeout(timeout);
 
-/* =========================
-   LIST PAGES
-   ========================= */
-
-async function loadPages() {
-  const res = await fetch(API + "/pages");
-  const list = await res.json();
-
-  const container = document.getElementById("pages");
-  container.innerHTML = "";
-
-  list.forEach(p => {
-    const div = document.createElement("div");
-    div.className = "page-item";
-    div.innerText = p;
-    div.onclick = () => load(p);
-    container.appendChild(div);
-  });
-}
-
-/* =========================
-   CREATE PAGE
-   ========================= */
-
-function createPage() {
-  const slug = prompt("Page name (slug):");
-  if (!slug) return;
-
-  load(slug);
-}
-
-/* =========================
-   STATUS
-   ========================= */
-
-function setStatus(text) {
-  document.getElementById("status").innerText = text;
-}
-
-/* =========================
-   INIT
-   ========================= */
-
-load(currentSlug);
-loadPages();
-
+  timeout = setTimeout(() => {
+    fetch(`/api/page/${path}`, {
+      method: "POST",
+      body: document.getElementById("editor").innerHTML
+    });
+  }, 500);
+});
 </script>
 
 </body>
