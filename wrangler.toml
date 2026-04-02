@@ -1,7 +1,0 @@
-name = "open-wiki"
-main = "src/worker.js"
-compatibility_date = "2026-04-02"
-
-kv_namespaces = [
-  { binding = "WIKI", id = "REPLACE_WITH_KV_ID" }
-]
