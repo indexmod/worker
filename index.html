@@ -13,7 +13,7 @@ body {
   display: flex;
 }
 
-/* sidebar */
+/* SIDEBAR */
 .sidebar {
   width: 240px;
   height: 100vh;
@@ -38,13 +38,41 @@ body {
   font-size: 14px;
 }
 
-/* main */
+/* TOP BAR */
+.topbar {
+  position: fixed;
+  left: 240px;
+  right: 0;
+  top: 0;
+  height: 50px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 15px;
+  background: #fff;
+}
+
+button {
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: Georgia, serif;
+}
+
+button:hover {
+  border-color: #111;
+}
+
+/* MAIN */
 .main {
   margin-left: 240px;
   width: 100%;
+  padding-top: 60px;
 }
 
-/* editor */
+/* EDITOR */
 .editor {
   max-width: 800px;
   margin: 60px auto;
@@ -52,26 +80,13 @@ body {
   outline: none;
 }
 
-h1 {
-  font-size: 42px;
-  margin-bottom: 20px;
-}
-
-h2 {
-  font-size: 20px;
-  font-weight: normal;
-  color: #555;
-}
+h1 { font-size: 42px; margin-bottom: 20px; }
+p { font-size: 18px; line-height: 1.7; }
 
 hr {
   border: none;
   border-top: 1px solid #eee;
   margin: 30px 0;
-}
-
-p {
-  font-size: 18px;
-  line-height: 1.7;
 }
 </style>
 </head>
@@ -84,63 +99,80 @@ p {
   <div id="pages">Loading...</div>
 </div>
 
+<!-- TOPBAR -->
+<div class="topbar">
+  <button onclick="newPage()">New page</button>
+  <button onclick="saveNow()">Save</button>
+  <span id="status" style="font-size:12px;color:#888;"></span>
+</div>
+
 <!-- MAIN -->
 <div class="main">
   <div class="editor" contenteditable="true" id="editor"></div>
 </div>
 
 <script>
-const path = window.location.pathname.split("/").pop() || "home";
+let path = window.location.pathname.split("/").pop() || "home";
 const editor = document.getElementById("editor");
+const status = document.getElementById("status");
 
-/* --------------------
-   LOAD PAGE
----------------------*/
-fetch(`/api/page/${path}`)
-  .then(r => r.text())
-  .then(text => {
+/* LOAD PAGE */
+async function loadPage() {
+  const res = await fetch(`/api/page/${path}`);
+  const text = await res.text();
 
-    // ВАЖНО: если страница пустая — ставим минимальный шаблон
-    if (!text || text.trim() === "") {
-      editor.innerHTML = `
-        <h1>Untitled</h1>
-        <p>Start writing...</p>
-      `;
-    } else {
-      editor.innerHTML = text;
-    }
-  });
+  if (!text || text.trim() === "") {
+    editor.innerHTML = `<h1>Untitled</h1><p>Start writing...</p>`;
+  } else {
+    editor.innerHTML = text;
+  }
+}
+loadPage();
 
-/* --------------------
-   AUTO SAVE
----------------------*/
+/* AUTO SAVE */
 let timeout;
 
 editor.addEventListener("input", () => {
+  status.innerText = "editing...";
+
   clearTimeout(timeout);
 
   timeout = setTimeout(() => {
-    fetch(`/api/page/${path}`, {
-      method: "POST",
-      body: editor.innerHTML
-    });
-  }, 500);
+    saveNow(false);
+  }, 600);
 });
 
-/* --------------------
-   SIDEBAR LOAD (FIXED)
----------------------*/
+/* SAVE */
+async function saveNow(show = true) {
+  await fetch(`/api/page/${path}`, {
+    method: "POST",
+    body: editor.innerHTML
+  });
+
+  if (show) {
+    status.innerText = "saved ✓";
+    setTimeout(() => status.innerText = "", 1000);
+  }
+}
+
+/* NEW PAGE */
+function newPage() {
+  const name = prompt("New page name:");
+
+  if (!name) return;
+
+  window.location.href = `/${name}`;
+}
+
+/* SIDEBAR */
 async function loadPages() {
   const res = await fetch("/api/pages");
   const pages = await res.json();
 
-  document.getElementById("pages").innerHTML = pages.length
-    ? pages.map(p => `
-        <a class="page-link" href="/${p}">${p}</a>
-      `).join("")
-    : "<div style='color:#999;font-size:13px'>No pages</div>";
+  document.getElementById("pages").innerHTML = pages.map(p => `
+    <a class="page-link" href="/${p}">${p}</a>
+  `).join("");
 }
-
 loadPages();
 </script>
 
