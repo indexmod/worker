@@ -177,7 +177,12 @@ async function loadPage() {
       editor.innerHTML = `<h1>Untitled</h1><p>Start writing...</p>`;
     }
   } else {
-    editor.innerHTML = text;
+    // если это markdown — превращаем в HTML
+if (text.includes("#") || text.includes("*") || text.includes("- ")) {
+  editor.innerHTML = marked.parse(text);
+} else {
+  editor.innerHTML = text;
+}
   }
 
   updateMeta();
