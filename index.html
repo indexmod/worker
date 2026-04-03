@@ -15,6 +15,7 @@ body {
   display: flex;
 }
 
+/* LOGO */
 .logo {
   position: fixed;
   top: 10px;
@@ -31,11 +32,11 @@ body {
   100% { transform: scale(1); opacity: 0.85; }
 }
 
-/* 👇 ключевая правка */
+/* SIDEBAR */
 .sidebar {
   width: 240px;
   position: fixed;
-  top: 220px; /* 200px logo + запас */
+  top: 220px;
   padding: 20px;
   box-sizing: border-box;
 }
@@ -57,7 +58,7 @@ body {
   font-family: Monaco, monospace;
 }
 
-/* TOP BAR */
+/* TOPBAR */
 .topbar {
   position: fixed;
   left: 240px;
@@ -70,9 +71,8 @@ body {
   padding: 0 15px;
   background: #fff;
   font-family: Monaco, monospace;
+  z-index: 5;
 }
-
-
 
 /* BUTTONS */
 button {
@@ -112,7 +112,7 @@ button {
   line-height: 1.7;
 }
 
-/* REMOVE HR STYLE */
+/* CLEAN LOOK */
 hr {
   display: none;
 }
@@ -135,6 +135,7 @@ hr {
   <button onclick="saveNow()">save</button>
   <button onclick="saveLocal()">save local</button>
   <button onclick="restoreLocal()">restore</button>
+  <button onclick="refreshAll()">refresh</button>
   <span id="status" style="font-size:11px;color:#888;"></span>
 </div>
 
@@ -160,7 +161,7 @@ editor.addEventListener("paste", function(e) {
   document.execCommand("insertHTML", false, text.replace(/\n/g, "<p></p>"));
 });
 
-/* LOAD */
+/* LOAD PAGE */
 async function loadPage() {
   const res = await fetch(`/api/page/${path}`);
   const text = await res.text();
@@ -245,6 +246,17 @@ async function loadPages() {
   `).join("");
 }
 loadPages();
+
+/* REFRESH ALL */
+async function refreshAll() {
+  status.innerText = "refreshing...";
+
+  await loadPages();
+  await loadPage();
+
+  status.innerText = "updated ✓";
+  setTimeout(() => status.innerText = "", 1000);
+}
 </script>
 
 </body>
