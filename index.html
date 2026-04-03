@@ -7,14 +7,12 @@
 <link rel="icon" href="/logo.png">
 <link rel="icon" type="image/png" href="/logo.png">
 
-<!-- META AUTO -->
 <meta name="description" content="">
 <meta property="og:title" content="">
 <meta property="og:description" content="">
 <meta property="og:image" content="/logo.png">
 <meta property="og:type" content="article">
 
-<!-- MARKDOWN -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Old+Standard+TT&display=swap" rel="stylesheet">
@@ -28,7 +26,6 @@ body {
   display: flex;
 }
 
-/* LOGO */
 .logo {
   position: fixed;
   top: 10px;
@@ -44,7 +41,6 @@ body {
   100% { transform: scale(1); opacity: 0.85; }
 }
 
-/* SIDEBAR */
 .sidebar {
   width: 240px;
   position: fixed;
@@ -61,7 +57,6 @@ body {
   text-decoration: none;
 }
 
-/* TOPBAR */
 .topbar {
   position: fixed;
   left: 240px;
@@ -76,7 +71,6 @@ body {
   font-family: Monaco, monospace;
 }
 
-/* BUTTON */
 button {
   background: #fff;
   border: none;
@@ -86,14 +80,12 @@ button {
   text-transform: lowercase;
 }
 
-/* MAIN */
 .main {
   margin-left: 240px;
   width: 100%;
   padding-top: 60px;
 }
 
-/* EDITOR */
 .editor {
   max-width: 800px;
   margin: 60px auto;
@@ -101,7 +93,6 @@ button {
   outline: none;
 }
 
-/* TYPO */
 .editor h1 { font-size: 42px !important; }
 .editor h2 { font-size: 28px; margin-top: 30px; }
 .editor p { font-size: 18px !important; line-height: 1.7; }
@@ -132,16 +123,20 @@ hr { display: none; }
 </div>
 
 <script>
-let path = window.location.pathname.split("/").pop() || "home";
+let path =
+  new URLSearchParams(window.location.search).get("page") ||
+  window.location.pathname.split("/").pop() ||
+  "home";
+
 const editor = document.getElementById("editor");
 const status = document.getElementById("status");
 
-/* META */
+/* META AUTO */
 function updateMeta() {
   const h1 = editor.querySelector("h1");
   const title = h1 ? h1.innerText : "Indexmod";
 
-  let text = editor.innerText.replace(/\s+/g, " ").trim();
+  const text = editor.innerText.replace(/\s+/g, " ").trim();
   const description = text.slice(0, 140);
 
   document.title = title;
@@ -156,14 +151,6 @@ function getLocalKey() {
   return "wiki_backup_" + path;
 }
 
-/* MARKDOWN PASTE */
-editor.addEventListener("paste", function(e) {
-  e.preventDefault();
-  let text = (e.clipboardData || window.clipboardData).getData("text/plain");
-  let html = marked.parse(text);
-  document.execCommand("insertHTML", false, html);
-});
-
 /* LOAD */
 async function loadPage() {
   const res = await fetch(`/api/page/${path}`);
@@ -171,25 +158,26 @@ async function loadPage() {
 
   if (!text) {
     const raw = localStorage.getItem(getLocalKey());
-    if (raw) {
-      editor.innerHTML = JSON.parse(raw).html;
-    } else {
-      editor.innerHTML = `<h1>Untitled</h1><p>Start writing...</p>`;
-    }
+    editor.innerHTML = raw
+      ? JSON.parse(raw).html
+      : "<h1>Untitled</h1><p>Start writing...</p>";
   } else {
-    // если это markdown — превращаем в HTML
-if (text.includes("#") || text.includes("*") || text.includes("- ")) {
-  editor.innerHTML = marked.parse(text);
-} else {
-  editor.innerHTML = text;
-}
+    // MARKDOWN FIRST ALWAYS
+    editor.innerHTML = marked.parse(text);
   }
 
   updateMeta();
 }
 loadPage();
 
-/* AUTO SAVE */
+/* PASTE → CLEAN TEXT ONLY */
+editor.addEventListener("paste", (e) => {
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData("text/plain");
+  document.execCommand("insertText", false, text);
+});
+
+/* AUTOSAVE */
 let timeout;
 
 editor.addEventListener("input", () => {
@@ -238,7 +226,7 @@ function restoreLocal() {
 function newPage() {
   const name = prompt("page name:");
   if (!name) return;
-  window.location.href = `/${name}`;
+  window.location.href = `/?page=${name}`;
 }
 
 /* SIDEBAR */
@@ -246,9 +234,9 @@ async function loadPages() {
   const res = await fetch("/api/pages");
   const pages = await res.json();
 
-  document.getElementById("pages").innerHTML = pages.map(p =>
-    `<a class="page-link" href="/${p}">${p}</a>`
-  ).join("");
+  document.getElementById("pages").innerHTML = pages
+    .map(p => `<a class="page-link" href="/?page=${p}">${p}</a>`)
+    .join("");
 }
 loadPages();
 
