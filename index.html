@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Indexmod Press is a live wiki</title>
+<title>Indexmod Press</title>
 
 <link rel="icon" href="/logo.png">
-<link rel="icon" type="image/png" href="/logo.png">
 
 <meta name="description" content="">
 <meta property="og:title" content="">
@@ -21,8 +20,6 @@
 body {
   margin: 0;
   font-family: 'Old Standard TT', serif;
-  background: #fff;
-  color: #111;
   display: flex;
 }
 
@@ -30,60 +27,21 @@ body {
   position: fixed;
   top: 10px;
   left: 10px;
-  height: 200px;
+  height: 140px;
   z-index: 10;
-  animation: pulse 3s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 0.85; }
-  50% { transform: scale(1.06); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.85; }
 }
 
 .sidebar {
   width: 240px;
   position: fixed;
-  top: 220px;
+  top: 160px;
   padding: 20px;
-}
-
-.page-link {
-  display: block;
-  padding: 6px 0;
-  font-size: 13px;
-  font-family: Monaco, monospace;
-  color: #111;
-  text-decoration: none;
-}
-
-.topbar {
-  position: fixed;
-  left: 240px;
-  right: 0;
-  top: 0;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 15px;
-  background: #fff;
-  font-family: Monaco, monospace;
-}
-
-button {
-  background: #fff;
-  border: none;
-  padding: 6px 10px;
-  cursor: pointer;
-  font-family: Monaco, monospace;
-  text-transform: lowercase;
 }
 
 .main {
   margin-left: 240px;
-  width: 100%;
   padding-top: 60px;
+  width: 100%;
 }
 
 .editor {
@@ -92,17 +50,6 @@ button {
   padding: 40px;
   outline: none;
 }
-
-.editor h1 { font-size: 42px !important; }
-.editor h2 { font-size: 28px; margin-top: 30px; }
-.editor p { font-size: 18px !important; line-height: 1.7; }
-
-.editor img {
-  max-width: 100%;
-  height: auto;
-}
-
-hr { display: none; }
 </style>
 </head>
 
@@ -114,149 +61,68 @@ hr { display: none; }
   <div id="pages">Loading...</div>
 </div>
 
-<div class="topbar">
-  <button onclick="newPage()">new page</button>
-  <button onclick="saveNow()">save</button>
-  <button onclick="saveLocal()">save local</button>
-  <button onclick="restoreLocal()">restore</button>
-  <button onclick="refreshAll()">refresh</button>
-  <span id="status"></span>
-</div>
-
 <div class="main">
   <div class="editor" contenteditable="true" id="editor"></div>
 </div>
 
 <script>
+const editor = document.getElementById("editor");
+
 let path =
-  new URLSearchParams(window.location.search).get("page") ||
-  window.location.pathname.split("/").pop() ||
+  new URLSearchParams(location.search).get("page") ||
+  location.pathname.split("/").pop() ||
   "home";
 
-const editor = document.getElementById("editor");
-const status = document.getElementById("status");
-
-/* MARKED */
 marked.setOptions({ breaks: true, gfm: true });
 
-const renderer = new marked.Renderer();
-renderer.link = (href, title, text) =>
-  `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-renderer.image = (href, title, text) =>
-  `<img src="${href}" alt="${text || ''}">`;
-
-marked.use({ renderer });
-
-/* ---------------------------
-   META SYSTEM (FIXED)
-----------------------------*/
-
-let metaLock = false;
-
-function updateMetaSafe() {
-  if (metaLock) return;
-
-  const h1 = editor.querySelector("h1");
-  const title = h1 ? h1.innerText.trim() : "Indexmod";
-
-  const text = editor.innerText.replace(/\s+/g, " ").trim();
-  const description = text.slice(0, 140);
-
-  const firstImg = editor.querySelector("img");
-  const ogImage = firstImg ? firstImg.src : "/logo.png";
-
-  // batch update = NO flicker / NO race
-  document.title = title;
-
-  const setMeta = (selector, value) => {
-    const el = document.querySelector(selector);
-    if (el) el.setAttribute("content", value);
-  };
-
-  setMeta('meta[name="description"]', description);
-  setMeta('meta[property="og:title"]', title);
-  setMeta('meta[property="og:description"]', description);
-  setMeta('meta[property="og:image"]', ogImage);
-}
-
-/* ---------------------------
-   LOAD PAGE (SAFE ORDER)
-----------------------------*/
-
+/* CLEAN LOAD */
 async function loadPage() {
-  metaLock = true;
-
   const res = await fetch(`/api/page/${path}`);
   const text = await res.text();
 
-  if (!text) {
-    const raw = localStorage.getItem("wiki_backup_" + path);
-    editor.innerHTML = raw
-      ? JSON.parse(raw).html
-      : "<h1>Untitled</h1><p>Start writing...</p>";
-  } else {
-    editor.innerHTML = marked.parse(text);
+  if (!text || text.trim() === "") {
+    editor.innerHTML = "<h1>Untitled</h1><p>Start writing...</p>";
+    return;
   }
 
-  metaLock = false;
-  updateMetaSafe();
+  editor.innerHTML = marked.parse(text);
+  updateMeta();
 }
 
 loadPage();
 
-/* ---------------------------
-   INPUT
-----------------------------*/
+/* META FIX (NO DUPES) */
+function updateMeta() {
+  const h1 = editor.querySelector("h1");
+  const title = h1 ? h1.innerText : "Indexmod";
 
+  const desc = editor.innerText.slice(0, 140);
+  const img = editor.querySelector("img")?.src || "/logo.png";
+
+  document.title = title;
+
+  setMeta('meta[name="description"]', desc);
+  setMeta('meta[property="og:title"]', title);
+  setMeta('meta[property="og:description"]', desc);
+  setMeta('meta[property="og:image"]', img);
+}
+
+function setMeta(sel, val) {
+  const el = document.querySelector(sel);
+  if (el) el.setAttribute("content", val);
+}
+
+/* INPUT */
 editor.addEventListener("input", () => {
-  status.innerText = "editing...";
-
-  localStorage.setItem("wiki_backup_" + path, JSON.stringify({
-    html: editor.innerHTML,
-    time: new Date().toISOString()
-  }));
-
-  updateMetaSafe();
-
-  clearTimeout(window.__saveTimer);
-  window.__saveTimer = setTimeout(() => saveNow(false), 600);
+  updateMeta();
 });
 
-/* ---------------------------
-   SAVE
-----------------------------*/
-
-async function saveNow(show = true) {
+/* SAVE */
+async function saveNow() {
   await fetch(`/api/page/${path}`, {
     method: "POST",
     body: editor.innerHTML
   });
-
-  if (show) {
-    status.innerText = "saved";
-    setTimeout(() => status.innerText = "", 1000);
-  }
-}
-
-/* LOCAL */
-function saveLocal() {
-  localStorage.setItem("wiki_backup_" + path, JSON.stringify({
-    html: editor.innerHTML
-  }));
-}
-
-function restoreLocal() {
-  const raw = localStorage.getItem("wiki_backup_" + path);
-  if (!raw) return;
-  editor.innerHTML = JSON.parse(raw).html;
-  updateMetaSafe();
-}
-
-/* NEW PAGE */
-function newPage() {
-  const name = prompt("page name:");
-  if (!name) return;
-  window.location.href = `/?page=${name}`;
 }
 
 /* SIDEBAR */
@@ -264,19 +130,11 @@ async function loadPages() {
   const res = await fetch("/api/pages");
   const pages = await res.json();
 
-  document.getElementById("pages").innerHTML = pages
-    .map(p => `<a class="page-link" href="/?page=${p}">${p}</a>`)
-    .join("");
+  document.getElementById("pages").innerHTML =
+    pages.map(p => `<a href="/?page=${p}">${p}</a>`).join("");
 }
-loadPages();
 
-/* REFRESH */
-async function refreshAll() {
-  status.innerText = "refreshing...";
-  await loadPages();
-  await loadPage();
-  status.innerText = "updated";
-}
+loadPages();
 </script>
 
 </body>
