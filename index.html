@@ -20,13 +20,21 @@ body {
   font-family: 'Old Standard TT', serif;
   background: #fff;
   color: #111;
+
   display: flex;
+  align-items: flex-start; /* 👈 КЛЮЧЕВОЙ ФИКС */
 }
 
-body {
-  margin: 0;
-  display: flex;
-  align-items: flex-start; /* 👈 КЛЮЧ */
+.logo {
+  width: 200px;
+  height: auto;
+  display: block;
+
+  flex-shrink: 0; /* 👈 НЕ ДАЁТ СЖИМАТЬ */
+
+  transform-origin: center;
+  animation: pulse 3s ease-in-out infinite;
+  will-change: transform;
 }
 
 .sidebar {
