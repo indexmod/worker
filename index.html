@@ -2,16 +2,27 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Indexmod</title>
+<title>Indexmod Press is a live wiki</title>
 
 <link rel="icon" href="/logo.png">
+<link rel="icon" type="image/png" href="/logo.png">
+
+<meta name="description" content="">
+<meta property="og:title" content="">
+<meta property="og:description" content="">
+<meta property="og:image" content="/logo.png">
+<meta property="og:type" content="article">
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Old+Standard+TT&display=swap" rel="stylesheet">
 
 <style>
 body {
   margin: 0;
-  font-family: serif;
+  font-family: 'Old Standard TT', serif;
+  background: #fff;
+  color: #111;
   display: flex;
 }
 
@@ -19,26 +30,74 @@ body {
   position: fixed;
   top: 10px;
   left: 10px;
-  height: 120px;
+  height: 200px;
+  z-index: 10;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.85; }
 }
 
 .sidebar {
-  width: 220px;
+  width: 240px;
   position: fixed;
-  top: 140px;
-  padding: 10px;
+  top: 220px;
+  padding: 20px;
+}
+
+.page-link {
+  display: block;
+  padding: 6px 0;
+  font-size: 13px;
+  font-family: Monaco, monospace;
+  color: #111;
+  text-decoration: none;
+}
+
+.topbar {
+  position: fixed;
+  left: 240px;
+  right: 0;
+  top: 0;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 15px;
+  background: #fff;
+  font-family: Monaco, monospace;
+}
+
+button {
+  background: #fff;
+  border: none;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: Monaco, monospace;
+  text-transform: lowercase;
 }
 
 .main {
-  margin-left: 220px;
-  padding: 20px;
+  margin-left: 240px;
+  width: 100%;
+  padding-top: 60px;
 }
 
 .editor {
   max-width: 800px;
   margin: 60px auto;
+  padding: 40px;
   outline: none;
 }
+
+.editor h1 { font-size: 42px !important; }
+.editor h2 { font-size: 28px; margin-top: 30px; }
+.editor p { font-size: 18px !important; line-height: 1.7; }
+
+hr { display: none; }
 </style>
 </head>
 
@@ -50,39 +109,124 @@ body {
   <div id="pages">Loading...</div>
 </div>
 
+<div class="topbar">
+  <button onclick="newPage()">new page</button>
+  <button onclick="saveNow()">save</button>
+  <button onclick="saveLocal()">save local</button>
+  <button onclick="restoreLocal()">restore</button>
+  <button onclick="refreshAll()">refresh</button>
+  <span id="status"></span>
+</div>
+
 <div class="main">
-  <div id="editor" class="editor" contenteditable="true"></div>
+  <div class="editor" contenteditable="true" id="editor"></div>
 </div>
 
 <script>
 let path =
-  new URLSearchParams(location.search).get("page") ||
+  new URLSearchParams(window.location.search).get("page") ||
+  window.location.pathname.split("/").pop() ||
   "home";
 
 const editor = document.getElementById("editor");
+const status = document.getElementById("status");
 
-marked.setOptions({ breaks: true });
+/* META AUTO */
+function updateMeta() {
+  const h1 = editor.querySelector("h1");
+  const title = h1 ? h1.innerText : "Indexmod";
 
+  const text = editor.innerText.replace(/\s+/g, " ").trim();
+  const description = text.slice(0, 140);
+
+  document.title = title;
+
+  document.querySelector('meta[name="description"]').setAttribute("content", description);
+  document.querySelector('meta[property="og:title"]').setAttribute("content", title);
+  document.querySelector('meta[property="og:description"]').setAttribute("content", description);
+}
+
+/* LOCAL KEY */
+function getLocalKey() {
+  return "wiki_backup_" + path;
+}
+
+/* LOAD */
 async function loadPage() {
   const res = await fetch(`/api/page/${path}`);
   const text = await res.text();
 
   if (!text) {
-    editor.innerHTML = "<h1>Untitled</h1>";
-    return;
+    const raw = localStorage.getItem(getLocalKey());
+    editor.innerHTML = raw
+      ? JSON.parse(raw).html
+      : "<h1>Untitled</h1><p>Start writing...</p>";
+  } else {
+    // MARKDOWN FIRST ALWAYS
+    editor.innerHTML = marked.parse(text);
   }
 
-  editor.innerHTML = marked.parse(text);
+  updateMeta();
 }
-
 loadPage();
 
+/* PASTE → CLEAN TEXT ONLY */
+editor.addEventListener("paste", (e) => {
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData("text/plain");
+  document.execCommand("insertText", false, text);
+});
+
+/* AUTOSAVE */
+let timeout;
+
+editor.addEventListener("input", () => {
+  status.innerText = "editing...";
+
+  localStorage.setItem(getLocalKey(), JSON.stringify({
+    html: editor.innerHTML,
+    time: new Date().toISOString()
+  }));
+
+  updateMeta();
+
+  clearTimeout(timeout);
+  timeout = setTimeout(() => saveNow(false), 600);
+});
+
 /* SAVE */
-async function saveNow() {
+async function saveNow(show = true) {
   await fetch(`/api/page/${path}`, {
     method: "POST",
     body: editor.innerHTML
   });
+
+  if (show) {
+    status.innerText = "saved";
+    setTimeout(() => status.innerText = "", 1000);
+  }
+}
+
+/* LOCAL */
+function saveLocal() {
+  localStorage.setItem(getLocalKey(), JSON.stringify({
+    html: editor.innerHTML
+  }));
+}
+
+/* RESTORE */
+function restoreLocal() {
+  const raw = localStorage.getItem(getLocalKey());
+  if (!raw) return;
+  editor.innerHTML = JSON.parse(raw).html;
+  updateMeta();
+}
+
+/* NEW PAGE */
+function newPage() {
+  const name = prompt("page name:");
+  if (!name) return;
+  window.location.href = `/?page=${name}`;
 }
 
 /* SIDEBAR */
@@ -90,17 +234,19 @@ async function loadPages() {
   const res = await fetch("/api/pages");
   const pages = await res.json();
 
-  document.getElementById("pages").innerHTML =
-    pages.map(p => `<a href="/?page=${p}">${p}</a>`).join("");
+  document.getElementById("pages").innerHTML = pages
+    .map(p => `<a class="page-link" href="/?page=${p}">${p}</a>`)
+    .join("");
 }
-
 loadPages();
 
-/* AUTO SAVE SIMPLE */
-editor.addEventListener("input", () => {
-  clearTimeout(window.t);
-  window.t = setTimeout(saveNow, 800);
-});
+/* REFRESH */
+async function refreshAll() {
+  status.innerText = "refreshing...";
+  await loadPages();
+  await loadPage();
+  status.innerText = "updated";
+}
 </script>
 
 </body>
