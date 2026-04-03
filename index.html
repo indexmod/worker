@@ -2,24 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Indexmod Press</title>
+<title>Indexmod</title>
 
 <link rel="icon" href="/logo.png">
 
-<meta name="description" content="">
-<meta property="og:title" content="">
-<meta property="og:description" content="">
-<meta property="og:image" content="/logo.png">
-<meta property="og:type" content="article">
-
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
-<link href="https://fonts.googleapis.com/css2?family=Old+Standard+TT&display=swap" rel="stylesheet">
 
 <style>
 body {
   margin: 0;
-  font-family: 'Old Standard TT', serif;
+  font-family: serif;
   display: flex;
 }
 
@@ -27,27 +19,24 @@ body {
   position: fixed;
   top: 10px;
   left: 10px;
-  height: 140px;
-  z-index: 10;
+  height: 120px;
 }
 
 .sidebar {
-  width: 240px;
+  width: 220px;
   position: fixed;
-  top: 160px;
-  padding: 20px;
+  top: 140px;
+  padding: 10px;
 }
 
 .main {
-  margin-left: 240px;
-  padding-top: 60px;
-  width: 100%;
+  margin-left: 220px;
+  padding: 20px;
 }
 
 .editor {
   max-width: 800px;
   margin: 60px auto;
-  padding: 40px;
   outline: none;
 }
 </style>
@@ -62,60 +51,31 @@ body {
 </div>
 
 <div class="main">
-  <div class="editor" contenteditable="true" id="editor"></div>
+  <div id="editor" class="editor" contenteditable="true"></div>
 </div>
 
 <script>
-const editor = document.getElementById("editor");
-
 let path =
   new URLSearchParams(location.search).get("page") ||
-  location.pathname.split("/").pop() ||
   "home";
 
-marked.setOptions({ breaks: true, gfm: true });
+const editor = document.getElementById("editor");
 
-/* CLEAN LOAD */
+marked.setOptions({ breaks: true });
+
 async function loadPage() {
   const res = await fetch(`/api/page/${path}`);
   const text = await res.text();
 
-  if (!text || text.trim() === "") {
-    editor.innerHTML = "<h1>Untitled</h1><p>Start writing...</p>";
+  if (!text) {
+    editor.innerHTML = "<h1>Untitled</h1>";
     return;
   }
 
   editor.innerHTML = marked.parse(text);
-  updateMeta();
 }
 
 loadPage();
-
-/* META FIX (NO DUPES) */
-function updateMeta() {
-  const h1 = editor.querySelector("h1");
-  const title = h1 ? h1.innerText : "Indexmod";
-
-  const desc = editor.innerText.slice(0, 140);
-  const img = editor.querySelector("img")?.src || "/logo.png";
-
-  document.title = title;
-
-  setMeta('meta[name="description"]', desc);
-  setMeta('meta[property="og:title"]', title);
-  setMeta('meta[property="og:description"]', desc);
-  setMeta('meta[property="og:image"]', img);
-}
-
-function setMeta(sel, val) {
-  const el = document.querySelector(sel);
-  if (el) el.setAttribute("content", val);
-}
-
-/* INPUT */
-editor.addEventListener("input", () => {
-  updateMeta();
-});
 
 /* SAVE */
 async function saveNow() {
@@ -135,6 +95,12 @@ async function loadPages() {
 }
 
 loadPages();
+
+/* AUTO SAVE SIMPLE */
+editor.addEventListener("input", () => {
+  clearTimeout(window.t);
+  window.t = setTimeout(saveNow, 800);
+});
 </script>
 
 </body>
