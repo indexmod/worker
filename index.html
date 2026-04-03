@@ -26,24 +26,29 @@ body {
 }
 
 .logo {
-  width: 200px;
-  height: auto;
-  display: block;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  height: 200px;
+  z-index: 10;
 
-  flex-shrink: 0; /* 👈 НЕ ДАЁТ СЖИМАТЬ */
-
-  transform-origin: center;
   animation: pulse 3s ease-in-out infinite;
-  will-change: transform;
 }
 
+@keyframes pulse {
+  0%   { transform: scale(1); opacity: 0.85; }
+  50%  { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.85; }
+}
+
+/* 👇 ключевая правка */
 .sidebar {
   width: 240px;
   position: fixed;
-  top: 200px;
+  top: 220px; /* 200px logo + запас */
   padding: 20px;
+  box-sizing: border-box;
 }
-
 .page-link {
   display: block;
   padding: 6px 0;
@@ -105,7 +110,7 @@ button {
   <button onclick="saveNow()">Save</button>
   <button onclick="refresh()">Refresh</button>
   <button onclick="refresh()">Clone</button>
-  <button onclick="refresh()">Restor</button>
+  <button onclick="refresh()">Restore</button>
   <span id="status"></span>
 </div>
 
