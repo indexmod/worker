@@ -3,8 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <title>Indexmod Press is a live wiki</title>
+
 <link rel="icon" href="/logo.png">
 <link rel="icon" type="image/png" href="/logo.png">
+
+<!-- META AUTO -->
+<meta name="description" content="">
+<meta property="og:title" content="">
+<meta property="og:description" content="">
+<meta property="og:image" content="/logo.png">
+<meta property="og:type" content="article">
+
+<!-- MARKDOWN -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Old+Standard+TT&display=swap" rel="stylesheet">
 
@@ -24,13 +35,12 @@ body {
   left: 10px;
   height: 200px;
   z-index: 10;
-
   animation: pulse 3s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0%   { transform: scale(1); opacity: 0.85; }
-  50%  { transform: scale(1.06); opacity: 1; }
+  0% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.06); opacity: 1; }
   100% { transform: scale(1); opacity: 0.85; }
 }
 
@@ -40,24 +50,15 @@ body {
   position: fixed;
   top: 220px;
   padding: 20px;
-  box-sizing: border-box;
-}
-
-.sidebar h3 {
-  margin: 0 0 10px 0;
-  font-size: 12px;
-  text-transform: lowercase;
-  color: #666;
-  font-family: Monaco, monospace;
 }
 
 .page-link {
   display: block;
   padding: 6px 0;
-  color: #111;
-  text-decoration: none;
   font-size: 13px;
   font-family: Monaco, monospace;
+  color: #111;
+  text-decoration: none;
 }
 
 /* TOPBAR */
@@ -73,18 +74,16 @@ body {
   padding: 0 15px;
   background: #fff;
   font-family: Monaco, monospace;
-  z-index: 5;
 }
 
-/* BUTTONS */
+/* BUTTON */
 button {
   background: #fff;
-  border: 0px solid #ddd;
+  border: none;
   padding: 6px 10px;
   cursor: pointer;
   font-family: Monaco, monospace;
   text-transform: lowercase;
-  font-size: 12px;
 }
 
 /* MAIN */
@@ -102,22 +101,12 @@ button {
   outline: none;
 }
 
-/* FIXED TYPOGRAPHY */
-.editor h1 {
-  font-size: 42px !important;
-  margin-bottom: 20px;
-  font-weight: normal;
-}
+/* TYPO */
+.editor h1 { font-size: 42px !important; }
+.editor h2 { font-size: 28px; margin-top: 30px; }
+.editor p { font-size: 18px !important; line-height: 1.7; }
 
-.editor p {
-  font-size: 18px !important;
-  line-height: 1.7;
-}
-
-/* CLEAN LOOK */
-hr {
-  display: none;
-}
+hr { display: none; }
 </style>
 </head>
 
@@ -125,23 +114,19 @@ hr {
 
 <img src="/logo.png" class="logo">
 
-<!-- SIDEBAR -->
 <div class="sidebar">
-  <h3></h3>
   <div id="pages">Loading...</div>
 </div>
 
-<!-- TOPBAR -->
 <div class="topbar">
   <button onclick="newPage()">new page</button>
   <button onclick="saveNow()">save</button>
   <button onclick="saveLocal()">save local</button>
   <button onclick="restoreLocal()">restore</button>
   <button onclick="refreshAll()">refresh</button>
-  <span id="status" style="font-size:11px;color:#888;"></span>
+  <span id="status"></span>
 </div>
 
-<!-- MAIN -->
 <div class="main">
   <div class="editor" contenteditable="true" id="editor"></div>
 </div>
@@ -151,34 +136,51 @@ let path = window.location.pathname.split("/").pop() || "home";
 const editor = document.getElementById("editor");
 const status = document.getElementById("status");
 
+/* META */
+function updateMeta() {
+  const h1 = editor.querySelector("h1");
+  const title = h1 ? h1.innerText : "Indexmod";
+
+  let text = editor.innerText.replace(/\s+/g, " ").trim();
+  const description = text.slice(0, 140);
+
+  document.title = title;
+
+  document.querySelector('meta[name="description"]').setAttribute("content", description);
+  document.querySelector('meta[property="og:title"]').setAttribute("content", title);
+  document.querySelector('meta[property="og:description"]').setAttribute("content", description);
+}
+
 /* LOCAL KEY */
 function getLocalKey() {
   return "wiki_backup_" + path;
 }
 
-/* CLEAN PASTE */
+/* MARKDOWN PASTE */
 editor.addEventListener("paste", function(e) {
   e.preventDefault();
   let text = (e.clipboardData || window.clipboardData).getData("text/plain");
-  document.execCommand("insertHTML", false, text.replace(/\n/g, "<p></p>"));
+  let html = marked.parse(text);
+  document.execCommand("insertHTML", false, html);
 });
 
-/* LOAD PAGE */
+/* LOAD */
 async function loadPage() {
   const res = await fetch(`/api/page/${path}`);
   const text = await res.text();
 
-  if (!text || text.trim() === "") {
+  if (!text) {
     const raw = localStorage.getItem(getLocalKey());
     if (raw) {
       editor.innerHTML = JSON.parse(raw).html;
-      status.innerText = "restored local";
-      return;
+    } else {
+      editor.innerHTML = `<h1>Untitled</h1><p>Start writing...</p>`;
     }
-    editor.innerHTML = `<h1>Untitled</h1><p>Start writing...</p>`;
   } else {
     editor.innerHTML = text;
   }
+
+  updateMeta();
 }
 loadPage();
 
@@ -193,11 +195,13 @@ editor.addEventListener("input", () => {
     time: new Date().toISOString()
   }));
 
+  updateMeta();
+
   clearTimeout(timeout);
   timeout = setTimeout(() => saveNow(false), 600);
 });
 
-/* SERVER SAVE */
+/* SAVE */
 async function saveNow(show = true) {
   await fetch(`/api/page/${path}`, {
     method: "POST",
@@ -210,25 +214,19 @@ async function saveNow(show = true) {
   }
 }
 
-/* LOCAL SAVE */
+/* LOCAL */
 function saveLocal() {
   localStorage.setItem(getLocalKey(), JSON.stringify({
-    html: editor.innerHTML,
-    time: new Date().toISOString()
+    html: editor.innerHTML
   }));
-
-  status.innerText = "saved local";
 }
 
 /* RESTORE */
 function restoreLocal() {
   const raw = localStorage.getItem(getLocalKey());
-  if (!raw) return alert("no backup");
-
-  if (!confirm("restore local version?")) return;
-
+  if (!raw) return;
   editor.innerHTML = JSON.parse(raw).html;
-  status.innerText = "restored";
+  updateMeta();
 }
 
 /* NEW PAGE */
@@ -243,21 +241,18 @@ async function loadPages() {
   const res = await fetch("/api/pages");
   const pages = await res.json();
 
-  document.getElementById("pages").innerHTML = pages.map(p => `
-    <a class="page-link" href="/${p}">${p}</a>
-  `).join("");
+  document.getElementById("pages").innerHTML = pages.map(p =>
+    `<a class="page-link" href="/${p}">${p}</a>`
+  ).join("");
 }
 loadPages();
 
-/* REFRESH ALL */
+/* REFRESH */
 async function refreshAll() {
   status.innerText = "refreshing...";
-
   await loadPages();
   await loadPage();
-
-  status.innerText = "updated ✓";
-  setTimeout(() => status.innerText = "", 1000);
+  status.innerText = "updated";
 }
 </script>
 
