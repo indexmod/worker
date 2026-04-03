@@ -19,13 +19,14 @@ body {
 .logo {
   display: block;
   width: 200px;
-  margin: 0 auto 30px auto;
+  margin: 0 0 30px 0; /* 👈 left aligned */
+  animation: fadeIn 1.2s ease forwards;
 }
 
 /* CONTAINER */
 .box {
   max-width: 700px;
-  margin: auto;
+  margin: 0; /* 👈 left aligned */
 }
 
 /* TITLE */
@@ -35,21 +36,34 @@ h2 {
   text-transform: lowercase;
   font-weight: normal;
   margin-bottom: 20px;
+
+  animation: fadeIn 1s ease forwards;
 }
 
 /* ITEM LIST */
 .item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start; /* 👈 left aligned */
+  gap: 10px;
   padding: 10px 0;
   font-size: 16px;
+
+  opacity: 0;
+  transform: translateX(-10px);
+  animation: itemIn 0.4s ease forwards;
 }
+
+/* stagger animation */
+.item:nth-child(1) { animation-delay: 0.05s; }
+.item:nth-child(2) { animation-delay: 0.1s; }
+.item:nth-child(3) { animation-delay: 0.15s; }
+.item:nth-child(4) { animation-delay: 0.2s; }
+.item:nth-child(5) { animation-delay: 0.25s; }
 
 /* CHECKBOX */
 input[type="checkbox"] {
   transform: scale(1.1);
-  margin-right: 10px;
 }
 
 /* BUTTON */
@@ -61,10 +75,25 @@ button {
   cursor: pointer;
   font-family: Monaco, monospace;
   text-transform: lowercase;
+
+  animation: fadeIn 1.2s ease forwards;
 }
 
 button:hover {
   border-color: #111;
+}
+
+/* ANIMATIONS */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes itemIn {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 </style>
 </head>
