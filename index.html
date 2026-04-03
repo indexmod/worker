@@ -2,16 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Indexmod Press is a live wiki</title>
+<title>Indexmod Press</title>
 
 <link rel="icon" href="/logo.png">
-<link rel="icon" type="image/png" href="/logo.png">
-
 <meta name="description" content="">
 <meta property="og:title" content="">
 <meta property="og:description" content="">
 <meta property="og:image" content="/logo.png">
-<meta property="og:type" content="article">
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -30,21 +27,13 @@ body {
   position: fixed;
   top: 10px;
   left: 10px;
-  height: 200px;
-  z-index: 10;
-  animation: pulse 3s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 0.85; }
-  50% { transform: scale(1.06); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.85; }
+  height: 160px;
 }
 
 .sidebar {
   width: 240px;
   position: fixed;
-  top: 220px;
+  top: 200px;
   padding: 20px;
 }
 
@@ -52,7 +41,7 @@ body {
   display: block;
   padding: 6px 0;
   font-size: 13px;
-  font-family: Monaco, monospace;
+  font-family: monospace;
   color: #111;
   text-decoration: none;
 }
@@ -68,16 +57,14 @@ body {
   gap: 10px;
   padding: 0 15px;
   background: #fff;
-  font-family: Monaco, monospace;
+  font-family: monospace;
 }
 
 button {
   background: #fff;
   border: none;
-  padding: 6px 10px;
   cursor: pointer;
-  font-family: Monaco, monospace;
-  text-transform: lowercase;
+  font-family: monospace;
 }
 
 .main {
@@ -93,11 +80,8 @@ button {
   outline: none;
 }
 
-.editor h1 { font-size: 42px !important; }
-.editor h2 { font-size: 28px; margin-top: 30px; }
-.editor p { font-size: 18px !important; line-height: 1.7; }
-
-hr { display: none; }
+.editor h1 { font-size: 40px; }
+.editor p { font-size: 18px; line-height: 1.6; }
 </style>
 </head>
 
@@ -112,9 +96,7 @@ hr { display: none; }
 <div class="topbar">
   <button onclick="newPage()">new page</button>
   <button onclick="saveNow()">save</button>
-  <button onclick="saveLocal()">save local</button>
-  <button onclick="restoreLocal()">restore</button>
-  <button onclick="refreshAll()">refresh</button>
+  <button onclick="refresh()">refresh</button>
   <span id="status"></span>
 </div>
 
@@ -131,102 +113,63 @@ let path =
 const editor = document.getElementById("editor");
 const status = document.getElementById("status");
 
-/* META AUTO */
+/* META */
 function updateMeta() {
   const h1 = editor.querySelector("h1");
   const title = h1 ? h1.innerText : "Indexmod";
 
-  const text = editor.innerText.replace(/\s+/g, " ").trim();
-  const description = text.slice(0, 140);
+  const text = editor.innerText.replace(/\s+/g, " ").trim().slice(0, 140);
 
   document.title = title;
-
-  document.querySelector('meta[name="description"]').setAttribute("content", description);
-  document.querySelector('meta[property="og:title"]').setAttribute("content", title);
-  document.querySelector('meta[property="og:description"]').setAttribute("content", description);
 }
 
 /* LOCAL KEY */
 function getLocalKey() {
-  return "wiki_backup_" + path;
+  return "wiki_" + path;
 }
 
-/* LOAD */
+/* LOAD PAGE */
 async function loadPage() {
-  const res = await fetch(`/api/page/${path}`);
+  const res = await fetch("/api/page/" + path);
   const text = await res.text();
 
   if (!text) {
-    const raw = localStorage.getItem(getLocalKey());
-    editor.innerHTML = raw
-      ? JSON.parse(raw).html
+    const local = localStorage.getItem(getLocalKey());
+    editor.innerHTML = local
+      ? JSON.parse(local).html
       : "<h1>Untitled</h1><p>Start writing...</p>";
   } else {
-    // MARKDOWN FIRST ALWAYS
     editor.innerHTML = marked.parse(text);
   }
 
   updateMeta();
 }
+
 loadPage();
 
-/* PASTE → CLEAN TEXT ONLY */
-editor.addEventListener("paste", (e) => {
-  e.preventDefault();
-  const text = (e.clipboardData || window.clipboardData).getData("text/plain");
-  document.execCommand("insertText", false, text);
-});
-
-/* AUTOSAVE */
-let timeout;
-
-editor.addEventListener("input", () => {
-  status.innerText = "editing...";
-
-  localStorage.setItem(getLocalKey(), JSON.stringify({
-    html: editor.innerHTML,
-    time: new Date().toISOString()
-  }));
-
-  updateMeta();
-
-  clearTimeout(timeout);
-  timeout = setTimeout(() => saveNow(false), 600);
-});
-
 /* SAVE */
-async function saveNow(show = true) {
-  await fetch(`/api/page/${path}`, {
+async function saveNow() {
+  await fetch("/api/page/" + path, {
     method: "POST",
     body: editor.innerHTML
   });
 
-  if (show) {
-    status.innerText = "saved";
-    setTimeout(() => status.innerText = "", 1000);
-  }
+  status.innerText = "saved";
+  setTimeout(() => status.innerText = "", 800);
 }
 
-/* LOCAL */
-function saveLocal() {
+/* AUTOSAVE */
+editor.addEventListener("input", () => {
   localStorage.setItem(getLocalKey(), JSON.stringify({
     html: editor.innerHTML
   }));
-}
-
-/* RESTORE */
-function restoreLocal() {
-  const raw = localStorage.getItem(getLocalKey());
-  if (!raw) return;
-  editor.innerHTML = JSON.parse(raw).html;
-  updateMeta();
-}
+});
 
 /* NEW PAGE */
 function newPage() {
   const name = prompt("page name:");
   if (!name) return;
-  window.location.href = `/?page=${name}`;
+  window.location.href = "/?page=" + name;
 }
 
 /* SIDEBAR */
@@ -234,32 +177,18 @@ async function loadPages() {
   const res = await fetch("/api/pages");
   const pages = await res.json();
 
-  document.getElementById("pages").innerHTML = pages
-    .map(p => `<a class="page-link" href="/?page=${p}">${p}</a>`)
-    .join("");
+  document.getElementById("pages").innerHTML =
+    pages.map(p => `<a class="page-link" href="/?page=${p}">${p}</a>`).join("");
 }
+
 loadPages();
 
 /* REFRESH */
-async function refreshAll() {
-  status.innerText = "refreshing...";
-  await loadPages();
-  await loadPage();
-  status.innerText = "updated";
-}
-import { cleanMarkdown } from "../modules/render/cleanMarkdown.js";
-import { renderMarkdown } from "../modules/render/markdown.js";
-
-async function load() {
-  const res = await fetch(`/api/page/${page}`);
-  let text = await res.text();
-
-  text = cleanMarkdown(text); // 👈 ВАЖНО
-
-  editor.innerHTML = renderMarkdown(text || "");
+function refresh() {
+  loadPages();
+  loadPage();
 }
 </script>
-
 
 </body>
 </html>
