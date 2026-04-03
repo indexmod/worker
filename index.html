@@ -15,11 +15,11 @@ body {
   display: flex;
 }
 
-/* SIDEBAR */
 .sidebar {
   width: 240px;
   height: 100vh;
   position: fixed;
+  top: 60px; /* 👈 ВАЖНО: отодвигаем вниз от лого */
   padding: 20px;
   box-sizing: border-box;
 }
@@ -61,7 +61,8 @@ body {
   position: fixed;
   top: 10px;
   left: 10px;
-  height: 100px;
+  height: 30px;
+  z-index: 10;
 }
 
 /* BUTTONS */
