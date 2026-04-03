@@ -4,10 +4,12 @@
 <meta charset="UTF-8">
 <title>Indexmod Wiki</title>
 
+<link href="https://fonts.googleapis.com/css2?family=Old+Standard+TT&display=swap" rel="stylesheet">
+
 <style>
 body {
   margin: 0;
-  font-family: Georgia, serif;
+  font-family: 'Old Standard TT', serif;
   background: #fff;
   color: #111;
   display: flex;
@@ -18,16 +20,16 @@ body {
   width: 240px;
   height: 100vh;
   position: fixed;
-  border-right: 1px solid #eee;
   padding: 20px;
   box-sizing: border-box;
 }
 
 .sidebar h3 {
   margin: 0 0 10px 0;
-  font-size: 13px;
-  text-transform: uppercase;
+  font-size: 12px;
+  text-transform: lowercase;
   color: #666;
+  font-family: Monaco, monospace;
 }
 
 .page-link {
@@ -35,7 +37,8 @@ body {
   padding: 6px 0;
   color: #111;
   text-decoration: none;
-  font-size: 14px;
+  font-size: 13px;
+  font-family: Monaco, monospace;
 }
 
 /* TOP BAR */
@@ -45,20 +48,31 @@ body {
   right: 0;
   top: 0;
   height: 50px;
-  border-bottom: 1px solid #eee;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 15px;
   background: #fff;
+  font-family: Monaco, monospace;
 }
 
+/* LOGO */
+.logo {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  height: 30px;
+}
+
+/* BUTTONS */
 button {
   background: #fff;
   border: 1px solid #ddd;
   padding: 6px 10px;
   cursor: pointer;
-  font-family: Georgia, serif;
+  font-family: Monaco, monospace;
+  text-transform: lowercase;
+  font-size: 12px;
 }
 
 button:hover {
@@ -80,30 +94,42 @@ button:hover {
   outline: none;
 }
 
-h1 { font-size: 42px; margin-bottom: 20px; }
-p { font-size: 18px; line-height: 1.7; }
+/* FIXED TYPOGRAPHY */
+.editor h1 {
+  font-size: 42px !important;
+  margin-bottom: 20px;
+  font-weight: normal;
+}
 
+.editor p {
+  font-size: 18px !important;
+  line-height: 1.7;
+}
+
+/* REMOVE HR STYLE */
 hr {
-  border: none;
-  border-top: 1px solid #eee;
-  margin: 30px 0;
+  display: none;
 }
 </style>
 </head>
 
 <body>
 
+<img src="/logo.png" class="logo">
+
 <!-- SIDEBAR -->
 <div class="sidebar">
-  <h3>Pages</h3>
+  <h3>pages</h3>
   <div id="pages">Loading...</div>
 </div>
 
 <!-- TOPBAR -->
 <div class="topbar">
-  <button onclick="newPage()">New page</button>
-  <button onclick="saveNow()">Save</button>
-  <span id="status" style="font-size:12px;color:#888;"></span>
+  <button onclick="newPage()">new page</button>
+  <button onclick="saveNow()">save</button>
+  <button onclick="saveLocal()">save local</button>
+  <button onclick="restoreLocal()">restore</button>
+  <span id="status" style="font-size:11px;color:#888;"></span>
 </div>
 
 <!-- MAIN -->
@@ -116,12 +142,30 @@ let path = window.location.pathname.split("/").pop() || "home";
 const editor = document.getElementById("editor");
 const status = document.getElementById("status");
 
-/* LOAD PAGE */
+/* LOCAL KEY */
+function getLocalKey() {
+  return "wiki_backup_" + path;
+}
+
+/* CLEAN PASTE */
+editor.addEventListener("paste", function(e) {
+  e.preventDefault();
+  let text = (e.clipboardData || window.clipboardData).getData("text/plain");
+  document.execCommand("insertHTML", false, text.replace(/\n/g, "<p></p>"));
+});
+
+/* LOAD */
 async function loadPage() {
   const res = await fetch(`/api/page/${path}`);
   const text = await res.text();
 
   if (!text || text.trim() === "") {
+    const raw = localStorage.getItem(getLocalKey());
+    if (raw) {
+      editor.innerHTML = JSON.parse(raw).html;
+      status.innerText = "restored local";
+      return;
+    }
     editor.innerHTML = `<h1>Untitled</h1><p>Start writing...</p>`;
   } else {
     editor.innerHTML = text;
@@ -135,14 +179,16 @@ let timeout;
 editor.addEventListener("input", () => {
   status.innerText = "editing...";
 
-  clearTimeout(timeout);
+  localStorage.setItem(getLocalKey(), JSON.stringify({
+    html: editor.innerHTML,
+    time: new Date().toISOString()
+  }));
 
-  timeout = setTimeout(() => {
-    saveNow(false);
-  }, 600);
+  clearTimeout(timeout);
+  timeout = setTimeout(() => saveNow(false), 600);
 });
 
-/* SAVE */
+/* SERVER SAVE */
 async function saveNow(show = true) {
   await fetch(`/api/page/${path}`, {
     method: "POST",
@@ -150,17 +196,36 @@ async function saveNow(show = true) {
   });
 
   if (show) {
-    status.innerText = "saved ✓";
+    status.innerText = "saved";
     setTimeout(() => status.innerText = "", 1000);
   }
 }
 
+/* LOCAL SAVE */
+function saveLocal() {
+  localStorage.setItem(getLocalKey(), JSON.stringify({
+    html: editor.innerHTML,
+    time: new Date().toISOString()
+  }));
+
+  status.innerText = "saved local";
+}
+
+/* RESTORE */
+function restoreLocal() {
+  const raw = localStorage.getItem(getLocalKey());
+  if (!raw) return alert("no backup");
+
+  if (!confirm("restore local version?")) return;
+
+  editor.innerHTML = JSON.parse(raw).html;
+  status.innerText = "restored";
+}
+
 /* NEW PAGE */
 function newPage() {
-  const name = prompt("New page name:");
-
+  const name = prompt("page name:");
   if (!name) return;
-
   window.location.href = `/${name}`;
 }
 
