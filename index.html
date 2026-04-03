@@ -136,29 +136,28 @@ let path =
 const editor = document.getElementById("editor");
 const status = document.getElementById("status");
 
-/* MARKED CONFIG (FIXED) */
-marked.setOptions({
-  breaks: true,
-  gfm: true
-});
+/* MARKED */
+marked.setOptions({ breaks: true, gfm: true });
 
-/* LINK & IMAGE FIX */
 const renderer = new marked.Renderer();
-
-renderer.link = function(href, title, text) {
-  return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-};
-
-renderer.image = function(href, title, text) {
-  return `<img src="${href}" alt="${text || ''}">`;
-};
+renderer.link = (href, title, text) =>
+  `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+renderer.image = (href, title, text) =>
+  `<img src="${href}" alt="${text || ''}">`;
 
 marked.use({ renderer });
 
-/* META AUTO */
-function updateMeta() {
+/* ---------------------------
+   META SYSTEM (FIXED)
+----------------------------*/
+
+let metaLock = false;
+
+function updateMetaSafe() {
+  if (metaLock) return;
+
   const h1 = editor.querySelector("h1");
-  const title = h1 ? h1.innerText : "Indexmod";
+  const title = h1 ? h1.innerText.trim() : "Indexmod";
 
   const text = editor.innerText.replace(/\s+/g, " ").trim();
   const description = text.slice(0, 140);
@@ -166,62 +165,67 @@ function updateMeta() {
   const firstImg = editor.querySelector("img");
   const ogImage = firstImg ? firstImg.src : "/logo.png";
 
+  // batch update = NO flicker / NO race
   document.title = title;
 
-  document.querySelector('meta[name="description"]').setAttribute("content", description);
-  document.querySelector('meta[property="og:title"]').setAttribute("content", title);
-  document.querySelector('meta[property="og:description"]').setAttribute("content", description);
-  document.querySelector('meta[property="og:image"]').setAttribute("content", ogImage);
+  const setMeta = (selector, value) => {
+    const el = document.querySelector(selector);
+    if (el) el.setAttribute("content", value);
+  };
+
+  setMeta('meta[name="description"]', description);
+  setMeta('meta[property="og:title"]', title);
+  setMeta('meta[property="og:description"]', description);
+  setMeta('meta[property="og:image"]', ogImage);
 }
 
-/* LOCAL KEY */
-function getLocalKey() {
-  return "wiki_backup_" + path;
-}
+/* ---------------------------
+   LOAD PAGE (SAFE ORDER)
+----------------------------*/
 
-/* LOAD */
 async function loadPage() {
+  metaLock = true;
+
   const res = await fetch(`/api/page/${path}`);
   const text = await res.text();
 
   if (!text) {
-    const raw = localStorage.getItem(getLocalKey());
+    const raw = localStorage.getItem("wiki_backup_" + path);
     editor.innerHTML = raw
       ? JSON.parse(raw).html
-      : "<h1>Untitled</h1><p>Start writing in Markdown...</p>";
+      : "<h1>Untitled</h1><p>Start writing...</p>";
   } else {
     editor.innerHTML = marked.parse(text);
   }
 
-  updateMeta();
+  metaLock = false;
+  updateMetaSafe();
 }
+
 loadPage();
 
-/* PASTE CLEAN */
-editor.addEventListener("paste", (e) => {
-  e.preventDefault();
-  const text = (e.clipboardData || window.clipboardData).getData("text/plain");
-  document.execCommand("insertText", false, text);
-});
-
-/* AUTOSAVE */
-let timeout;
+/* ---------------------------
+   INPUT
+----------------------------*/
 
 editor.addEventListener("input", () => {
   status.innerText = "editing...";
 
-  localStorage.setItem(getLocalKey(), JSON.stringify({
+  localStorage.setItem("wiki_backup_" + path, JSON.stringify({
     html: editor.innerHTML,
     time: new Date().toISOString()
   }));
 
-  updateMeta();
+  updateMetaSafe();
 
-  clearTimeout(timeout);
-  timeout = setTimeout(() => saveNow(false), 600);
+  clearTimeout(window.__saveTimer);
+  window.__saveTimer = setTimeout(() => saveNow(false), 600);
 });
 
-/* SAVE */
+/* ---------------------------
+   SAVE
+----------------------------*/
+
 async function saveNow(show = true) {
   await fetch(`/api/page/${path}`, {
     method: "POST",
@@ -236,17 +240,16 @@ async function saveNow(show = true) {
 
 /* LOCAL */
 function saveLocal() {
-  localStorage.setItem(getLocalKey(), JSON.stringify({
+  localStorage.setItem("wiki_backup_" + path, JSON.stringify({
     html: editor.innerHTML
   }));
 }
 
-/* RESTORE */
 function restoreLocal() {
-  const raw = localStorage.getItem(getLocalKey());
+  const raw = localStorage.getItem("wiki_backup_" + path);
   if (!raw) return;
   editor.innerHTML = JSON.parse(raw).html;
-  updateMeta();
+  updateMetaSafe();
 }
 
 /* NEW PAGE */
