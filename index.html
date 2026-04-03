@@ -247,7 +247,19 @@ async function refreshAll() {
   await loadPage();
   status.innerText = "updated";
 }
+import { cleanMarkdown } from "../modules/render/cleanMarkdown.js";
+import { renderMarkdown } from "../modules/render/markdown.js";
+
+async function load() {
+  const res = await fetch(`/api/page/${page}`);
+  let text = await res.text();
+
+  text = cleanMarkdown(text); // 👈 ВАЖНО
+
+  editor.innerHTML = renderMarkdown(text || "");
+}
 </script>
+
 
 </body>
 </html>
