@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+
 <title>Indexmod</title>
 <link rel="icon" href="/logo.png">
 
@@ -15,9 +16,8 @@ body {
   font-family: 'Old Standard TT', serif;
   background: #fff;
   color: #111;
-
   display: flex;
-  align-items: flex-start; /* 👈 КЛЮЧЕВОЙ ФИКС */
+  align-items: flex-start;
 }
 
 .logo {
@@ -26,24 +26,23 @@ body {
   left: 10px;
   height: 150px;
   z-index: 10;
-
   animation: pulse 3s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0%   { transform: scale(1); opacity: 0.85; }
-  50%  { transform: scale(1.06); opacity: 1; }
+  0% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.06); opacity: 1; }
   100% { transform: scale(1); opacity: 0.85; }
 }
 
-/* 👇 ключевая правка */
 .sidebar {
   width: 240px;
   position: fixed;
-  top: 220px; /* 200px logo + запас */
+  top: 220px;
   padding: 20px;
   box-sizing: border-box;
 }
+
 .page-link {
   display: block;
   padding: 6px 0;
@@ -65,6 +64,7 @@ body {
   padding: 0 15px;
   background: #fff;
   font-family: monospace;
+  z-index: 5;
 }
 
 button {
@@ -89,6 +89,11 @@ button {
 
 .editor h1 { font-size: 40px; }
 .editor p { font-size: 22px; line-height: 1.6; }
+
+#status {
+  margin-left: 10px;
+  font-size: 12px;
+}
 </style>
 </head>
 
@@ -104,8 +109,8 @@ button {
   <button onclick="newPage()">New page</button>
   <button onclick="saveNow()">Save</button>
   <button onclick="refresh()">Refresh</button>
-  <button onclick="refresh()">Clone</button>
-  <button onclick="refresh()">Restore</button>
+  <button onclick="clonePage()">Clone</button>
+  <button onclick="restorePage()">Restore</button>
   <span id="status"></span>
 </div>
 
@@ -114,30 +119,29 @@ button {
 </div>
 
 <script>
-let path =
-  new URLSearchParams(window.location.search).get("page") ||
-  window.location.pathname.split("/").pop() ||
-  "home";
+let path = window.location.pathname.split("/").pop() || "home";
 
 const editor = document.getElementById("editor");
 const status = document.getElementById("status");
 
-/* META */
+/* -------------------------
+   META
+--------------------------*/
 function updateMeta() {
   const h1 = editor.querySelector("h1");
-  const title = h1 ? h1.innerText : "Indexmod";
-
-  const text = editor.innerText.replace(/\s+/g, " ").trim().slice(0, 140);
-
-  document.title = title;
+  document.title = h1 ? h1.innerText : "Indexmod";
 }
 
-/* LOCAL KEY */
+/* -------------------------
+   LOCAL STORAGE KEY
+--------------------------*/
 function getLocalKey() {
   return "wiki_" + path;
 }
 
-/* LOAD PAGE */
+/* -------------------------
+   LOAD PAGE
+--------------------------*/
 async function loadPage() {
   const res = await fetch("/api/page/" + path);
   const text = await res.text();
@@ -156,43 +160,97 @@ async function loadPage() {
 
 loadPage();
 
-/* SAVE */
+/* -------------------------
+   SAVE TO SERVER
+--------------------------*/
 async function saveNow() {
-  await fetch("/api/page/" + path, {
+  const res = await fetch("/api/page/" + path, {
     method: "POST",
     body: editor.innerHTML
   });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (data.slug && data.slug !== path) {
+    path = data.slug;
+    window.history.replaceState({}, "", "/" + path);
+  }
 
   status.innerText = "saved";
   setTimeout(() => status.innerText = "", 800);
 }
 
-/* AUTOSAVE */
+/* -------------------------
+   AUTO SAVE LOCAL
+--------------------------*/
 editor.addEventListener("input", () => {
   localStorage.setItem(getLocalKey(), JSON.stringify({
     html: editor.innerHTML
   }));
 });
 
-/* NEW PAGE */
-function newPage() {
+/* -------------------------
+   NEW PAGE
+--------------------------*/
+async function newPage() {
   const name = prompt("page name:");
   if (!name) return;
-  window.location.href = "/?page=" + name;
+
+  const html = `<h1>${name}</h1><p>Start writing...</p>`;
+
+  const res = await fetch("/api/page/home", {
+    method: "POST",
+    body: html
+  });
+
+  const data = await res.json();
+
+  window.location.href = "/" + data.slug;
 }
 
-/* SIDEBAR */
+/* -------------------------
+   CLONE PAGE
+--------------------------*/
+function clonePage() {
+  localStorage.setItem("clone_" + path, editor.innerHTML);
+  status.innerText = "cloned";
+  setTimeout(() => status.innerText = "", 800);
+}
+
+/* -------------------------
+   RESTORE PAGE
+--------------------------*/
+function restorePage() {
+  const data = localStorage.getItem("clone_" + path);
+
+  if (!data) {
+    alert("No clone found");
+    return;
+  }
+
+  editor.innerHTML = data;
+  status.innerText = "restored";
+  setTimeout(() => status.innerText = "", 800);
+}
+
+/* -------------------------
+   SIDEBAR
+--------------------------*/
 async function loadPages() {
   const res = await fetch("/api/pages");
   const pages = await res.json();
 
   document.getElementById("pages").innerHTML =
-    pages.map(p => `<a class="page-link" href="/?page=${p}">${p}</a>`).join("");
+    pages.map(p =>
+      `<a class="page-link" href="/${p}">${p}</a>`
+    ).join("");
 }
 
 loadPages();
 
-/* REFRESH */
+/* -------------------------
+   REFRESH
+--------------------------*/
 function refresh() {
   loadPages();
   loadPage();
