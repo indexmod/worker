@@ -15,7 +15,6 @@ body {
 }
 
 .logo {
-  display: block;
   width: 150px;
   margin-bottom: 30px;
 }
@@ -25,7 +24,11 @@ body {
 }
 
 .item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 6px 0;
+  font-size: 14px;
 }
 
 button {
@@ -36,9 +39,14 @@ button {
   font-family: Monaco, monospace;
 }
 
+button:hover {
+  opacity: 0.6;
+}
+
 #status {
   margin-top: 10px;
   font-size: 12px;
+  color: #444;
 }
 </style>
 </head>
@@ -58,46 +66,55 @@ button {
 </div>
 
 <script>
+
 let pages = [];
 
+// -------------------------
+// LOAD PAGES
+// -------------------------
 async function loadPages() {
   const res = await fetch("/api/pages");
   pages = await res.json();
 
-  document.getElementById("list").innerHTML = pages.map(p => `
-    <div class="item">
-      <label>
+  document.getElementById("list").innerHTML =
+    pages.map(p => `
+      <div class="item">
         <input type="checkbox" value="${p}">
-        ${p}
-      </label>
-    </div>
-  `).join("");
+        <span>${p}</span>
+      </div>
+    `).join("");
 }
 
+loadPages();
+
+// -------------------------
+// DELETE SELECTED
+// -------------------------
 async function deleteSelected() {
   const checked = [...document.querySelectorAll("input:checked")]
     .map(i => i.value);
 
-  if (!checked.length) {
+  if (checked.length === 0) {
     document.getElementById("status").innerText = "nothing selected";
     return;
   }
 
   const res = await fetch("/api/delete", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json"
+    },
     body: JSON.stringify({ slugs: checked })
   });
 
   const text = await res.text();
 
-  document.getElementById("status").innerText =
-    "response: " + text;
+  document.getElementById("status").innerText = text;
 
+  // reload list after delete
   loadPages();
 }
 
-loadPages();
 </script>
 
 </body>
