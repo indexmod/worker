@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Control</title>
 <link rel="icon" href="/logo.png">
-<link rel="icon" type="image/png" href="/logo.png">
 
 <style>
 body {
@@ -15,62 +14,31 @@ body {
   padding: 40px;
 }
 
-/* LOGO (без анимации тут) */
 .logo {
   display: block;
   width: 150px;
-  margin: 0 0 30px 0;
-
-  animation: pulse 3s ease-in-out infinite;
-  transform-origin: center;
+  margin-bottom: 30px;
 }
 
-@keyframes pulse {
-  0%   { transform: scale(1); opacity: 0.85; }
-  50%  { transform: scale(1.06); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.85; }
-}
-
-/* CONTAINER */
 .box {
   max-width: 700px;
-  margin: 0;
 }
 
-/* TITLE */
-h2 {
-  font-size: 13px;
-  font-weight: normal;
-  margin-bottom: 20px;
-}
-
-/* ITEM */
 .item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  font-size: 14px;
+  padding: 6px 0;
 }
 
-/* CHECKBOX */
-input[type="checkbox"] {
-  transform: scale(1.05);
-}
-
-/* BUTTON (без рамки как ты просил) */
 button {
   margin-top: 20px;
-  padding: 10px 14px;
-  background: #fff;
-  border: none;           /* 👈 убрана рамка */
+  background: none;
+  border: none;
   cursor: pointer;
   font-family: Monaco, monospace;
-  padding-left: 0;
 }
 
-button:hover {
-  opacity: 0.6;
+#status {
+  margin-top: 10px;
+  font-size: 12px;
 }
 </style>
 </head>
@@ -80,11 +48,13 @@ button:hover {
 <img src="/logo.png" class="logo">
 
 <div class="box">
-  <h2>Content control</h2>
+  <h3>Content control</h3>
 
   <div id="list">Loading...</div>
 
   <button onclick="deleteSelected()">delete selected</button>
+
+  <div id="status"></div>
 </div>
 
 <script>
@@ -108,11 +78,21 @@ async function deleteSelected() {
   const checked = [...document.querySelectorAll("input:checked")]
     .map(i => i.value);
 
-  await fetch("/api/delete", {
+  if (!checked.length) {
+    document.getElementById("status").innerText = "nothing selected";
+    return;
+  }
+
+  const res = await fetch("/api/delete", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ slugs: checked })
   });
+
+  const text = await res.text();
+
+  document.getElementById("status").innerText =
+    "response: " + text;
 
   loadPages();
 }
