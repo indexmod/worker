@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 
 <title>Indexmod</title>
-
 <link rel="icon" href="/logo.png">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Old+Standard+TT&display=swap" rel="stylesheet">
@@ -16,6 +15,7 @@ body {
   background: #fff;
   color: #111;
   display: flex;
+  align-items: flex-start;
 }
 
 .logo {
@@ -107,6 +107,8 @@ button {
   <button onclick="newPage()">New page</button>
   <button onclick="saveNow()">Save</button>
   <button onclick="refresh()">Refresh</button>
+  <button onclick="clonePage()">Clone</button>
+  <button onclick="restorePage()">Restore</button>
   <span id="status"></span>
 </div>
 
@@ -120,31 +122,49 @@ let path = window.location.pathname.split("/").pop() || "home";
 const editor = document.getElementById("editor");
 const status = document.getElementById("status");
 
-// -------------------------
-// LOAD PAGE (Markdown → HTML)
-// -------------------------
+/* -------------------------
+   META
+--------------------------*/
+function updateMeta() {
+  const h1 = editor.querySelector("h1");
+  document.title = h1 ? h1.innerText : "Indexmod";
+}
+
+/* -------------------------
+   LOCAL STORAGE KEY
+--------------------------*/
+function getLocalKey() {
+  return "wiki_" + path;
+}
+
+/* -------------------------
+   LOAD PAGE
+--------------------------*/
 async function loadPage() {
   const res = await fetch("/api/page/" + path);
-  const md = await res.text();
+  const text = await res.text();
 
-  if (!md) {
-    editor.innerHTML = "<h1>Untitled</h1><p>Start writing...</p>";
+  if (!text) {
+    const local = localStorage.getItem(getLocalKey());
+    editor.innerHTML = local
+      ? JSON.parse(local).html
+      : "<h1>Untitled</h1><p>Start writing...</p>";
   } else {
-    editor.innerHTML = marked.parse(md);
+    editor.innerHTML = marked.parse(text);
   }
+
+  updateMeta();
 }
 
 loadPage();
 
-// -------------------------
-// SAVE (HTML → Markdown)
-// -------------------------
+/* -------------------------
+   SAVE TO SERVER
+--------------------------*/
 async function saveNow() {
-  const md = editor.innerText;
-
   const res = await fetch("/api/page/" + path, {
     method: "POST",
-    body: md
+    body: editor.innerHTML
   });
 
   const data = await res.json().catch(() => ({}));
@@ -158,31 +178,27 @@ async function saveNow() {
   setTimeout(() => status.innerText = "", 800);
 }
 
-// -------------------------
-// AUTO SAVE
-// -------------------------
-let timeout;
-
+/* -------------------------
+   AUTO SAVE LOCAL
+--------------------------*/
 editor.addEventListener("input", () => {
-  clearTimeout(timeout);
-
-  timeout = setTimeout(() => {
-    saveNow();
-  }, 800);
+  localStorage.setItem(getLocalKey(), JSON.stringify({
+    html: editor.innerHTML
+  }));
 });
 
-// -------------------------
-// NEW PAGE (Markdown!)
-// -------------------------
+/* -------------------------
+   NEW PAGE
+--------------------------*/
 async function newPage() {
   const name = prompt("page name:");
   if (!name) return;
 
-  const md = `# ${name}\n\nStart writing...`;
+  const html = `<h1>${name}</h1><p>Start writing...</p>`;
 
   const res = await fetch("/api/page/home", {
     method: "POST",
-    body: md
+    body: html
   });
 
   const data = await res.json();
@@ -190,9 +206,34 @@ async function newPage() {
   window.location.href = "/" + data.slug;
 }
 
-// -------------------------
-// SIDEBAR
-// -------------------------
+/* -------------------------
+   CLONE PAGE
+--------------------------*/
+function clonePage() {
+  localStorage.setItem("clone_" + path, editor.innerHTML);
+  status.innerText = "cloned";
+  setTimeout(() => status.innerText = "", 800);
+}
+
+/* -------------------------
+   RESTORE PAGE
+--------------------------*/
+function restorePage() {
+  const data = localStorage.getItem("clone_" + path);
+
+  if (!data) {
+    alert("No clone found");
+    return;
+  }
+
+  editor.innerHTML = data;
+  status.innerText = "restored";
+  setTimeout(() => status.innerText = "", 800);
+}
+
+/* -------------------------
+   SIDEBAR
+--------------------------*/
 async function loadPages() {
   const res = await fetch("/api/pages");
   const pages = await res.json();
@@ -205,9 +246,9 @@ async function loadPages() {
 
 loadPages();
 
-// -------------------------
-// REFRESH
-// -------------------------
+/* -------------------------
+   REFRESH
+--------------------------*/
 function refresh() {
   loadPages();
   loadPage();
